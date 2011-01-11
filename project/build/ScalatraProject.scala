@@ -4,10 +4,10 @@ import scala.xml._
 import com.rossabaker.sbt.gpg._
 
 class ScalatraProject(info: ProjectInfo) 
-  extends ParentProject(info) {
-//  with GpgPlugin
-//  with ChecksumPlugin
-//{
+  extends ParentProject(info) 
+  with GpgPlugin
+  with ChecksumPlugin
+{
   override def shouldCheckOutputDirectories = false
 
   val jettyGroupId = "org.eclipse.jetty"
