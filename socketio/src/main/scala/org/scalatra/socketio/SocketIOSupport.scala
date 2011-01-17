@@ -12,6 +12,14 @@ import com.glines.socketio.server.SocketIOFrame.FrameType
 import java.util.concurrent.{CopyOnWriteArrayList, ConcurrentHashMap}
 import javax.servlet.http.{HttpServletResponse, HttpServletRequest}
 import util.RicherString._
+import socketio.SocketIOSupport.SocketIOClient
+
+sealed trait Event {
+  val client: SocketIOClient
+}
+case class Connect(client: SocketIOClient) extends Event
+case class Disconnect(client: SocketIOClient, reason: DisconnectReason, message: String) extends Event
+case class Message(client: SocketIOClient, frameType: FrameType, message: String) extends Event
 
 object SocketIOSupport {
   val BUFFER_SIZE_INIT_PARAM = "bufferSize"
@@ -19,52 +27,23 @@ object SocketIOSupport {
   val BUFFER_SIZE_DEFAULT: Int = 8192
   val MAX_IDLE_TIME_DEFAULT: Int = 300 * 1000
 
-  type ConnectHandler = SocketIOClient => Unit
-  type DisconnectHandler = (SocketIOClient, DisconnectReason, String) => Unit
-  type MessageHandler = (SocketIOClient, FrameType, String) => Unit
-
-  class SocketIOClientBuilder {
-
-    private var _connectHandler: Option[ConnectHandler] = None
-    private var _disconnectHandler: Option[DisconnectHandler] = None
-    private var _messageHandler: Option[MessageHandler] = None
-
-    def onConnect(callback: ConnectHandler) {
-      _connectHandler = Option(callback)
-    }
-
-    def onDisconnect(callback: DisconnectHandler) {
-      _disconnectHandler = Option(callback)
-    }
-
-    def onMessage(callback: MessageHandler) {
-      _messageHandler = Option(callback)
-    }
-
+  class SocketIOClientBuilder(handler: Event => Unit) {
     def result(removeFromClients: SocketIOClient => Unit) = {
       new SocketIOClient {
         def onConnect(out: SocketIOOutbound) = {
-          _out = Option(out)
-          _connectHandler foreach {
-            _(this)
-          }
+          _out = Some(out)
+          handler(Connect(this))
         }
 
         def onDisconnect(reason: DisconnectReason, message: String) = {
-          _disconnectHandler foreach {
-            _(this, reason, message)
-          }
+          handler(Disconnect(this, reason, message))
           removeFromClients(this)
         }
 
-        def onMessage(messageType: Int, message: String) = {
-          _messageHandler foreach {
-            _(this, FrameType.fromInt(messageType), message)
-          }
-        }
+        def onMessage(messageType: Int, message: String) =
+          handler(Message(this, FrameType.fromInt(messageType), message))
       }
     }
-
   }
 
   trait SocketIOClient extends SocketIOInbound {
@@ -182,10 +161,9 @@ trait SocketIOSupport extends Handler with Initializable {
     }
   }
 
-  def socketio(action: SocketIOClientBuilder => Unit) {
+  def socketio(handler: Event => Unit) {
     if (_builder != null) throw new RuntimeException("You can only use 1 socketio method per application")
-    _builder = new SocketIOClientBuilder
-    action(_builder)
+    _builder = new SocketIOClientBuilder(handler)
   }
 
 }

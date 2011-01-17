@@ -1,13 +1,11 @@
 package org.scalatra
 
-import socketio.SocketIOSupport
+import socketio._
 import com.glines.socketio.server.SocketIOFrame
 
 class ChatServlet extends ScalatraServlet with SocketIOSupport {
-
-
-  socketio { socket =>
-    socket.onConnect { connection =>
+  socketio {
+    case Connect(connection) =>
       println("Connecting chat client [%s]" format connection.clientId)
       try {
         connection.send(SocketIOFrame.JSON_MESSAGE_TYPE, """{ "welcome": "Welcome to Socket IO chat" }""")
@@ -16,15 +14,13 @@ class ChatServlet extends ScalatraServlet with SocketIOSupport {
       }
       connection.broadcast(SocketIOFrame.JSON_MESSAGE_TYPE,
         """{ "announcement": "New participant [%s]" }""".format(connection.clientId))
-    }
 
-    socket.onDisconnect { (connection, reason, _) =>
+    case Disconnect(connection, reason, _) =>
       println("Disconnecting chat client [%s] (%s)".format(connection.clientId, reason))
       connection.broadcast(SocketIOFrame.JSON_MESSAGE_TYPE,
         """{ "announcement": "Participant [%s] left" }""".format(connection.clientId))
-    }
 
-    socket.onMessage { (connection, _, message) =>
+    case Message(connection, _, message) =>
       println("RECV: [%s]" format message)
       message match {
         case "/rclose" => {
@@ -38,6 +34,5 @@ class ChatServlet extends ScalatraServlet with SocketIOSupport {
             """{ "message": ["%s", "%s"] }""".format(connection.clientId, message))
         }
       }
-    }
   }
 }
