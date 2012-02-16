@@ -31,7 +31,7 @@ object ScalatraBuild extends Build {
     aggregate = Seq(scalatraCore, scalatraAuth, scalatraFileupload,
       scalatraScalate, scalatraLiftJson, scalatraAntiXml,
       scalatraTest, scalatraScalatest, scalatraSpecs, scalatraSpecs2,
-      scalatraExample, scalatraAkka, scalatraDocs)
+      scalatraExample, scalatraAkka, scalatraDocs, scalatraServlet)
   )
 
   lazy val scalatraCore = Project(
@@ -102,6 +102,15 @@ object ScalatraBuild extends Build {
     )
   ) dependsOn(scalatraCore % "compile;test->test;provided->provided")
 
+  lazy val scalatraServlet = Project(
+    id = "scalatra-servlet",
+    base = file("servlet"),
+    settings = scalatraSettings ++ Seq(
+      libraryDependencies ++= Seq(servletApi, jettyWebapp),
+      description := "Servlet backend for Scalatra"
+    )
+  ) dependsOn(scalatraCore % "compile;test->test;provided->provided")
+
   lazy val scalatraTest = Project(
     id = "scalatra-test",
     base = file("test"),
@@ -159,7 +168,7 @@ object ScalatraBuild extends Build {
     base = file("example"),
     settings = scalatraSettings ++ webSettings ++ doNotPublish ++ Seq(
       resolvers ++= Seq(sonatypeNexusSnapshots),
-      libraryDependencies ++= Seq(atmosphere, jettyWebapp),
+      libraryDependencies ++= Seq(atmosphere, jettyWebapp % "container"),
       description := "Scalatra example project"
     )
   ) dependsOn(
@@ -201,7 +210,7 @@ object ScalatraBuild extends Build {
     private def jettyDep(name: String) = "org.eclipse.jetty" % name % "8.1.0.v20120127"
     val testJettyServlet = jettyDep("test-jetty-servlet")
     val jettyWebsocket = jettyDep("jetty-websocket") % "provided"
-    val jettyWebapp = jettyDep("jetty-webapp") % "test;container"
+    val jettyWebapp = jettyDep("jetty-webapp")
 
     val junit = "junit" % "junit" % "4.10"
 
